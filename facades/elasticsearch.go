@@ -1,10 +1,9 @@
 package facades
 
 import (
+	"github.com/hulutech-web/elasticsearch"
+	"github.com/hulutech-web/elasticsearch/contracts"
 	"log"
-
-	"goravel/packages/elasticsearch"
-	"goravel/packages/elasticsearch/contracts"
 )
 
 func Elasticsearch() contracts.Elasticsearch {
