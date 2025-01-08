@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/goravel/framework/contracts/http"
+	"github.com/goravel/framework/facades"
 	"log"
 )
 
@@ -14,8 +15,20 @@ type ExampleController struct {
 }
 
 func NewExampleController() *ExampleController {
-	client, _ := elasticsearch.NewDefaultClient()
-	//client := &elasticsearch.NewClient(elasticsearch.Config{}
+	address := facades.Config().GetString("elasticsearch.address")
+	username := facades.Config().GetString("elasticsearch.username")
+	password := facades.Config().GetString("elasticsearch.password")
+	cfg := elasticsearch.Config{
+		Addresses: []string{
+			address,
+		},
+		Username: username,
+		Password: password,
+	}
+	client, _ := elasticsearch.NewClient(cfg)
+	//or you can use the default config
+	//eg: client, _ := elasticsearch.NewDefaultClient()
+
 	es := NewElasticsearch(client)
 	return &ExampleController{
 		//Inject services
