@@ -1,4 +1,4 @@
-module elasticsearch
+module github.com/hulutech-web/elasticsearch
 
 go 1.23.3
 
