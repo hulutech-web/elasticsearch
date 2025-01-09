@@ -26,16 +26,16 @@ go run . artisan vendor:publish --package=./packages/elasticsearch
 发布资源后，config/elasticsearch.go中的配置文件中有默认的配置项信息，请自行修改
 ```go
 config.Add("elasticsearch", map[string]any{
-    "address":  "http://localhost:9200",
-    "username": "",
-    "password": "",
-    "schema":   "goravel",
-    "canal":    true,  // 是否开启canal
-    "log":      false, // 是否开启日志
-    "tables": []string{
-    "articles",//索引的表名
-    "posts", //索引的表名
-    },
+      "address":  "http://localhost:9200",
+      "username": "",
+      "password": "",
+      "schema":   "goravel",
+      "canal":    true,  // 是否开启canal
+      "log":      false, // 是否开启日志
+      "tables": map[string][]string{
+      "articles": {"title", "content", "subtitle"}, //表名和索引字段
+      "posts":    {"title", "content"},//表名和索引字段
+      },
 })
 ```
 #### 2.2 使用说明:同步es及查询示例
