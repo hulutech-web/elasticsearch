@@ -18,7 +18,7 @@ func init() {
 
 #### 1.2发布资源
 ```go
-go run . artisan vendor:publish --package=github.com/hulutech-web/elasticsearch
+go run . artisan vendor:publish --package=./packages/elasticsearch
 ```
 
 ## 二、使用
