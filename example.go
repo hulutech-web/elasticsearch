@@ -74,8 +74,7 @@ func (r *ExampleController) Index(ctx http.Context) http.Response {
 	if err != nil {
 		log.Fatalf("Error marshalling query: %s", err)
 	}
-	index := "article"
-	resp, err := r.SearchDocuments(ctx, string(queryStr), index)
+	resp, err := r.SearchDocuments(ctx, string(queryStr))
 	if err != nil {
 		log.Fatalf("Error searching documents: %s", err)
 	}

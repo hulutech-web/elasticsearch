@@ -1,6 +1,8 @@
 package elasticsearch
 
-import "github.com/goravel/framework/contracts/foundation"
+import (
+	"github.com/goravel/framework/contracts/foundation"
+)
 
 const Binding = "elasticsearch"
 
@@ -21,4 +23,5 @@ func (receiver *ServiceProvider) Boot(app foundation.Application) {
 	app.Publishes("github.com/hulutech-web/elasticsearch", map[string]string{
 		"config/elasticsearch.go": app.ConfigPath("elasticsearch.go"),
 	})
+	go ElasticSearch(app)
 }

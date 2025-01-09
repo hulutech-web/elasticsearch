@@ -10,5 +10,12 @@ func init() {
 		"address":  "http://localhost:9200",
 		"username": "",
 		"password": "",
+		"schema":   "goravel",
+		"canal":    true,  // 是否开启canal
+		"log":      false, // 是否开启日志
+		"tables": []string{
+			"articles",
+			"posts",
+		},
 	})
 }

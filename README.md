@@ -2,12 +2,11 @@
 
 ## 一、安装
 ```bash
-go get -u github.com/hulutech-web/elasticsearch
+go clone github.com/hulutech-web/elasticsearch
 
 ```
 #### 1.1 注册服务提供者:config/app.go
 ```go
-import	"github.com/hulutech-web/elasticsearch"
 
 func init() {
 "providers": []foundation.ServiceProvider{
@@ -30,6 +29,13 @@ config.Add("elasticsearch", map[string]any{
     "address":  "http://localhost:9200",
     "username": "",
     "password": "",
+    "schema":   "goravel",
+    "canal":    true,  // 是否开启canal
+    "log":      false, // 是否开启日志
+    "tables": []string{
+    "articles",//索引的表名
+    "posts", //索引的表名
+    },
 })
 ```
 #### 2.2 使用说明:同步es及查询示例
@@ -177,4 +183,83 @@ func (r *ArticleController) Store(ctx http.Context) http.Response {
 	}
 	return httpfacade.NewResult(ctx).Success("创建成功", nil)
 }
+```
+
+#### 2.3 自动同步
+为方便的使用es的能力，采用canal扩展包来监听mysql数据库的变化，当数据发生变化时，自动同步到es中。这样与业务进行解耦，避免了不必要的操作。
+- 安装canal:阿里巴巴 MySQL binlog 增量订阅&消费组件
+下载安装包：[git地址](https://github.com/alibaba/canal/releases)
+- 解压后，修改配置文件
+  1. canal配置文件``canal.properties``:
+    ```properties
+    # tcp bind ip
+    canal.ip = 127.0.0.1
+    # register ip to zookeeper
+    canal.register.ip =
+    canal.port = 11111
+    canal.metrics.pull.port = 11112
+    # canal instance user/passwd
+    # canal.user = canal
+    # canal.passwd =
+    
+    
+    # MySQL主库地址
+    canal.instance.master.address = 127.0.0.1:3306
+    # MySQL用户名
+    canal.instance.dbUsername = root
+    # MySQL密码
+    canal.instance.dbPassword = Dazhouquxian2012.
+    
+    canal.destinations = example
+    ```
+  2. canal配置文件``example/instance.properties``:
+    ```properties
+    # position info
+    canal.instance.master.address=127.0.0.1:3306
+    # table regex
+    canal.instance.filter.regex=goravel\\.articles,goravel\\.roles,goravel\\.users
+    # table black regex
+    canal.instance.filter.black.regex=mysql\\.slave_.*
+    ```
+    
+  
+- mysql配置binlog,``my.cnf``文件
+```properties
+# Default Homebrew MySQL server config
+[mysqld]
+# Only allow connections from localhost
+bind-address = 127.0.0.1
+mysqlx-bind-address = 127.0.0.1
+server_id = 1  #配置mysql replication需要定义，不能和canal的slaveId重复
+binlog-format = ROW
+log-bin = mysql-bin #开启binlog
+```
+- mysql用户权限配置
+```sql
+use `goravel`;
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'root'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON goravel.* TO 'root'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+- 安装扩展golang包
+```go
+go get -u github.com/withlin/canal-go/client
+```
+- 启动canal:
+``yourpath/canal.deployer-1.1.8-SNAPSHOT/bin`` 下执行,``./startup.sh``命令启动canal，默认端口为11111，关闭则执行``./stop.sh``命令
+```shell
+sh ./startup.sh
+```
+- 同步日志打印
+```bash
+【ES INFO】================> binlog[mysql-bin.000003 : 55642],Schema:[goravel],tablename:[articles],docID:[1] eventType: INSERT
+id : 1  update= true
+title : 出塞二首  update= true
+subtitle : 出塞二首  update= true
+content : 秦时明月汉时关，万里长征人未还。 但使龙城飞将在，不教胡马度阴山。 骝马新跨白玉鞍，战罢沙场月色寒。 城头铁鼓声犹震，匣里金刀血未干。  update= true
+author : 王昌龄〔唐代〕  update= true
+created_at : 2025-01-09 12:11:12  update= true
+updated_at : 2025-01-09 12:11:12  update= true
+deleted_at :   update= true
 ```
