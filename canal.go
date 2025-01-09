@@ -3,7 +3,6 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/goravel/framework/facades"
 	"github.com/goravel/framework/support/color"
 	"github.com/withlin/canal-go/client"
@@ -14,30 +13,10 @@ import (
 	"time"
 )
 
-var (
-	ES *Elasticsearch
-)
-
-func initES() {
-	cfg := elasticsearch.Config{
-		Addresses: []string{facades.Config().GetString("elasticsearch.address")},
-		Username:  facades.Config().GetString("elasticsearch.username"),
-		Password:  facades.Config().GetString("elasticsearch.password"),
-	}
-	client, err := elasticsearch.NewClient(cfg)
-	if err != nil {
-		log.Fatalf("Failed to create Elasticsearch client: %v", err)
-	}
-	ES = NewElasticsearch(client)
-	//创建索引
-	tables := facades.Config().Get("elasticsearch.tables")
-	tablesSlice := tables.([]string)
-	ES.InitIndex(context.Background(), tablesSlice)
-}
-
 // StartCanalSync 启动Canal同步到ES
 func StartCanalSync() error {
-	initES()
+	ctx := context.Background()
+	NewElastic(ctx)
 	mode := facades.Config().GetBool("elasticsearch.canal")
 
 	if !mode {
@@ -51,10 +30,10 @@ func StartCanalSync() error {
 		log.Println(err)
 		os.Exit(1)
 	}
-	tables := facades.Config().Get("elasticsearch.tables").([]string)
+	indexs, err := GetElasticsearchTables()
 	schema := facades.Config().GetString("elasticsearch.schema")
 	subscribeStr := ""
-	for _, v := range tables {
+	for _, v := range indexs {
 		subscribeStr += schema + "\\." + v + ","
 	}
 	//去除最后一个逗号
@@ -77,14 +56,13 @@ func StartCanalSync() error {
 			time.Sleep(300 * time.Millisecond)
 			continue
 		} else {
-			printEntry(message.Entries)
+			printEntry(ctx, message.Entries)
 
 		}
 	}
 }
 
-func printEntry(entrys []pbe.Entry) {
-	ctx := context.Background()
+func printEntry(ctx context.Context, entrys []pbe.Entry) {
 	log_open := facades.Config().Get("elasticsearch.log")
 	log_open_val := log_open.(bool)
 	for _, entry := range entrys {

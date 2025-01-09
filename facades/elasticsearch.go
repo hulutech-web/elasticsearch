@@ -2,7 +2,7 @@ package facades
 
 import (
 	"github.com/hulutech-web/elasticsearch"
-	"github.com/hulutech-web/elasticsearch/contracts"
+	"goravel/packages/elasticsearch/contracts"
 	"log"
 )
 

@@ -10,26 +10,79 @@ import (
 	"github.com/goravel/framework/support/color"
 	"log"
 	"strings"
+	"sync"
 )
 
-type Elasticsearch struct {
+var (
+	once sync.Once
+	ES   *Elastic
+)
+
+type Elastic struct {
 	client *elasticsearch.Client
 	indexs []string
 }
 
-func NewElasticsearch(client *elasticsearch.Client) *Elasticsearch {
-	indexsStr := facades.Config().Get("elasticsearch.tables")
-	if val, ok := indexsStr.([]string); ok {
-		return &Elasticsearch{
-			client: client,
-			indexs: val,
-		}
+// 获取并处理elasticsearch.tables配置
+func GetElasticsearchTables() ([]string, error) {
+	tablesInterface := facades.Config().Get("elasticsearch.tables")
+	tables, ok := tablesInterface.(map[string][]string)
+	if !ok {
+		return nil, fmt.Errorf("Invalid configuration for 'elasticsearch.tables'")
 	}
-	return nil
+
+	indexs := make([]string, 0, len(tables))
+	for index := range tables {
+		indexs = append(indexs, index)
+		//fmt.Printf("Index: %s, Fields: %v\n", index, tables[index])
+	}
+	return indexs, nil
+}
+
+// 创建Elasticsearch客户端
+func createElasticsearchClient() (*elasticsearch.Client, error) {
+	cfg := elasticsearch.Config{
+		Addresses: []string{facades.Config().GetString("elasticsearch.address")},
+		Username:  facades.Config().GetString("elasticsearch.username"),
+		Password:  facades.Config().GetString("elasticsearch.password"),
+	}
+	return elasticsearch.NewClient(cfg)
+}
+
+func NewElastic(ctx context.Context) (*Elastic, error) {
+	var err error
+	once.Do(func() {
+		var client *elasticsearch.Client
+		client, err = createElasticsearchClient()
+		if err != nil {
+			log.Printf("Failed to create Elasticsearch client: %v", err)
+			return
+		}
+
+		var indexs []string
+		indexs, err = GetElasticsearchTables()
+		if err != nil {
+			log.Printf("Error getting Elasticsearch tables: %v", err)
+			return
+		}
+
+		ES = &Elastic{
+			client: client,
+			indexs: indexs,
+		}
+		_, err := ES.PushIndex(ctx, indexs)
+		if err != nil {
+			log.Printf("Error pushing index: %v", err)
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ES, nil
 }
 
 // 搜索文档
-func (e *Elasticsearch) SearchDocuments(ctx context.Context, query string) (*esapi.Response, error) {
+func (e *Elastic) SearchDocuments(ctx context.Context, query string) (*esapi.Response, error) {
 	req := esapi.SearchRequest{
 		Index: e.indexs,
 		Body:  strings.NewReader(query),
@@ -38,7 +91,7 @@ func (e *Elasticsearch) SearchDocuments(ctx context.Context, query string) (*esa
 }
 
 // 创建索引
-func (e *Elasticsearch) InitIndex(ctx context.Context, indexs []string) (*esapi.Response, error) {
+func (e *Elastic) PushIndex(ctx context.Context, indexs []string) (*esapi.Response, error) {
 	req := esapi.IndicesExistsRequest{
 		Index: indexs,
 	}
@@ -79,7 +132,7 @@ func (e *Elasticsearch) InitIndex(ctx context.Context, indexs []string) (*esapi.
 }
 
 // 索引文档
-func (e *Elasticsearch) IndexDocument(ctx context.Context, index string, docID string, body interface{}) (*esapi.Response, error) {
+func (e *Elastic) IndexDocument(ctx context.Context, index string, docID string, body interface{}) (*esapi.Response, error) {
 	docBytes, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -95,7 +148,7 @@ func (e *Elasticsearch) IndexDocument(ctx context.Context, index string, docID s
 }
 
 // 获取文档
-func (e *Elasticsearch) GetDocument(ctx context.Context, index string, docID string) (*esapi.Response, error) {
+func (e *Elastic) GetDocument(ctx context.Context, index string, docID string) (*esapi.Response, error) {
 	req := esapi.GetRequest{
 		Index:      index,
 		DocumentID: docID,
@@ -104,7 +157,7 @@ func (e *Elasticsearch) GetDocument(ctx context.Context, index string, docID str
 }
 
 // 更新文档
-func (e *Elasticsearch) UpdateDocument(ctx context.Context, index string, docID string, body interface{}) (*esapi.Response, error) {
+func (e *Elastic) UpdateDocument(ctx context.Context, index string, docID string, body interface{}) (*esapi.Response, error) {
 	docBytes, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -119,7 +172,7 @@ func (e *Elasticsearch) UpdateDocument(ctx context.Context, index string, docID 
 }
 
 // 删除文档
-func (e *Elasticsearch) DeleteDocument(ctx context.Context, index string, docID string) (*esapi.Response, error) {
+func (e *Elastic) DeleteDocument(ctx context.Context, index string, docID string) (*esapi.Response, error) {
 	req := esapi.DeleteRequest{
 		Index:      index,
 		DocumentID: docID,
@@ -128,7 +181,7 @@ func (e *Elasticsearch) DeleteDocument(ctx context.Context, index string, docID 
 }
 
 // 删除索引
-func (e *Elasticsearch) DeleteIndex(ctx context.Context, index string) (*esapi.Response, error) {
+func (e *Elastic) DeleteIndex(ctx context.Context, index string) (*esapi.Response, error) {
 	req := esapi.IndicesDeleteRequest{
 		Index: []string{index},
 	}
@@ -136,7 +189,7 @@ func (e *Elasticsearch) DeleteIndex(ctx context.Context, index string) (*esapi.R
 }
 
 // 删除索引文章
-func (e *Elasticsearch) DeleteIndexDocuments(ctx context.Context, index string) (*esapi.Response, error) {
+func (e *Elastic) DeleteIndexDocuments(ctx context.Context, index string) (*esapi.Response, error) {
 	req := esapi.DeleteByQueryRequest{
 		Index: []string{index},
 	}

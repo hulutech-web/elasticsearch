@@ -3,37 +3,16 @@ package elasticsearch
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/goravel/framework/contracts/http"
-	"github.com/goravel/framework/facades"
 	"log"
 )
 
 type ExampleController struct {
-	Elasticsearch
 	// Dependent services
 }
 
 func NewExampleController() *ExampleController {
-	address := facades.Config().GetString("elasticsearch.address")
-	username := facades.Config().GetString("elasticsearch.username")
-	password := facades.Config().GetString("elasticsearch.password")
-	cfg := elasticsearch.Config{
-		Addresses: []string{
-			address,
-		},
-		Username: username,
-		Password: password,
-	}
-	client, _ := elasticsearch.NewClient(cfg)
-	//or you can use the default config
-	//eg: client, _ := elasticsearch.NewDefaultClient()
-
-	es := NewElasticsearch(client)
-	return &ExampleController{
-		//Inject services
-		Elasticsearch: *es,
-	}
+	return &ExampleController{}
 }
 
 // 查询出数据，并按照关键词进行高亮显示，给定一个html的class类名为highlight,前端请自行添加高亮的样式
@@ -74,7 +53,8 @@ func (r *ExampleController) Index(ctx http.Context) http.Response {
 	if err != nil {
 		log.Fatalf("Error marshalling query: %s", err)
 	}
-	resp, err := r.SearchDocuments(ctx, string(queryStr))
+	instance, err := NewElastic(ctx)
+	resp, err := instance.SearchDocuments(ctx, string(queryStr))
 	if err != nil {
 		log.Fatalf("Error searching documents: %s", err)
 	}

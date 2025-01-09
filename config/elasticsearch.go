@@ -13,9 +13,9 @@ func init() {
 		"schema":   "goravel",
 		"canal":    true,  // 是否开启canal
 		"log":      false, // 是否开启日志
-		"tables": []string{
-			"articles",
-			"posts",
+		"tables": map[string][]string{
+			"articles": {"title", "content", "subtitle"},
+			"posts":    {"title", "content"},
 		},
 	})
 }
