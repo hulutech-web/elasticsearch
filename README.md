@@ -1,5 +1,13 @@
 # elasticsearch
 
+<p align="center">
+  <img src="https://github.com/hulutech-web/elasticsearch/blob/master/es.png?raw=true" width="750" />
+</p>
+
+### 简介 
+本扩展包是适配了goravel 1.15的ES扩展包，基于go-elasticsearch 8.0.0版本，
+支持canal实时同步数据到ES，通过配置文件配置即可开启，
+支持搜索高亮显示，支持手动同步，手动查询，中文分词解析器需安装相关扩展。
 ## 一、安装
 ```bash
 go clone github.com/hulutech-web/elasticsearch
@@ -33,8 +41,8 @@ config.Add("elasticsearch", map[string]any{
       "canal":    true,  // 是否开启canal
       "log":      false, // 是否开启日志
       "tables": map[string][]string{
-      "articles": {"title", "content", "subtitle"}, //表名和索引字段
-      "posts":    {"title", "content"},//表名和索引字段
+      "articles": {"title", "content", "subtitle"}, //数据库表名和列名，索引字段
+      "posts":    {"title", "content"},//数据库表名和列名，索引字段
       },
 })
 ```
@@ -253,7 +261,7 @@ go get -u github.com/withlin/canal-go/client
 ```shell
 sh ./startup.sh
 ```
-- 同步日志打印
+- canal同步日志打印
 ```bash
 【ES INFO】================> binlog[mysql-bin.000003 : 55642],Schema:[goravel],tablename:[articles],docID:[1] eventType: INSERT
 id : 1  update= true
@@ -264,4 +272,14 @@ author : 王昌龄〔唐代〕  update= true
 created_at : 2025-01-09 12:11:12  update= true
 updated_at : 2025-01-09 12:11:12  update= true
 deleted_at :   update= true
+```
+- 内置Api接口
+  1. 查询路由，【请求】GET，【地址】``/es``，【参数】：?content=xxx，【功能】：根据content字段查询结果，并且有高亮显示，class类名为``highlight``
+  2. 同步路由，【请求】POST，【地址】``/es/sync``，【请求体】：json格式，【功能】：同步数据到es
+  ```json
+  {
+    "table":"tablename",
+    "model_id":"model_id",
+  }
+  
 ```

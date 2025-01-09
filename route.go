@@ -105,4 +105,5 @@ func ElasticSearch(app foundation.Application) {
 			"message": "同步成功",
 		})
 	})
+
 }
