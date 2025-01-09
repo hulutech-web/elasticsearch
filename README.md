@@ -1,7 +1,7 @@
 # elasticsearch
 
 <p align="center">
-  <img src="https://github.com/hulutech-web/elasticsearch/blob/master/es.png?raw=true" width="750" />
+  <img src="https://github.com/hulutech-web/elasticsearch/blob/master/es.png?raw=true" width="375" />
 </p>
 
 ### 简介 
