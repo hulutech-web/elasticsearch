@@ -49,101 +49,104 @@ import (
 	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/goravel/framework/contracts/http"
-    "github.com/hulutech-web/elasticsearch"
+	elasticfacades "goravel/packages/elasticsearch/facades"
 	"log"
 )
 
 type EsController struct {
-	Elasticsearch
 	// Dependent services
 }
 
 func NewEsController() *EsController {
-	client, _ := elasticsearch.NewDefaultClient()
 	//client := &elasticsearch.NewClient(elasticsearch.Config{}
-	es := NewElasticsearch(client)
 	return &EsController{
-		//Inject services
-		Elasticsearch: *es,
 	}
 }
 
+// 查询出数据，并按照关键词进行高亮显示，给定一个html的class类名为highlight,前端请自行添加高亮的样式
 func (r *EsController) Index(ctx http.Context) http.Response {
-	content := ctx.Request().Query("content")
-	query := map[string]interface{}{
-		"query": map[string]interface{}{
-			"multi_match": map[string]interface{}{
-				"query":  content,
-				"fields": []string{"title", "subtitle", "content", "author"},
-			},
-		},
-		"highlight": map[string]interface{}{
-			"pre_tags":  []string{"<span class='highlight'>"},
-			"post_tags": []string{"</span>"},
-			"fields": map[string]interface{}{
-				"title": map[string]interface{}{
-					"fragment_size":       100,
-					"number_of_fragments": 1,
-				},
-				"subtitle": map[string]interface{}{
-					"fragment_size":       100,
-					"number_of_fragments": 1,
-				},
-				"content": map[string]interface{}{
-					"fragment_size":       200,
-					"number_of_fragments": 3,
-				},
-				"author": map[string]interface{}{
-					"fragment_size":       50,
-					"number_of_fragments": 1,
-				},
-			},
-		},
-	}
-	// query转换为str
-	queryStr, err := json.Marshal(query)
-	if err != nil {
-		log.Fatalf("Error marshalling query: %s", err)
-	}
-	index := "article"
-	resp, err := r.SearchDocuments(ctx, string(queryStr), index)
-	if err != nil {
-		log.Fatalf("Error searching documents: %s", err)
-	}
-	var result map[string]interface{}
-	defer resp.Body.Close()
-	if resp.IsError() {
-		log.Printf("[%s] Error searching documents: %s", resp.Status(), resp.String())
-	} else {
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			log.Fatalf("Error decoding response: %s", err)
-		}
-		// 提取高亮部分并添加到结果中
-		hits, ok := result["hits"].(map[string]interface{})
-		if ok {
-			hitList, ok := hits["hits"].([]interface{})
-			if ok {
-				for i := range hitList {
-					hit, ok := hitList[i].(map[string]interface{})
-					if ok {
-						highlight, ok := hit["highlight"].(map[string]interface{})
-						if ok {
-							hit["highlighted"] = highlight
-							delete(hit, "highlight")
-						}
-					}
-				}
-			}
-		}
-		fmt.Printf("Search results: %+v\n", result)
-	}
-	return ctx.Response().Json(http.StatusOK, result)
+  content := ctx.Request().Query("content")
+  fields := ctx.Request().QueryArray("fields")
+  query := map[string]interface{}{
+    "query": map[string]interface{}{
+      "multi_match": map[string]interface{}{
+        "query":  content,
+        "fields": fields,
+      },
+    },
+    "highlight": map[string]interface{}{
+      "pre_tags":  []string{"<span class='highlight'>"},
+      "post_tags": []string{"</span>"},
+      "fields": map[string]interface{}{
+        "title": map[string]interface{}{
+          "fragment_size":       100,
+          "number_of_fragments": 1,
+        },
+        "subtitle": map[string]interface{}{
+          "fragment_size":       100,
+          "number_of_fragments": 1,
+        },
+        "content": map[string]interface{}{
+          "fragment_size":       200,
+          "number_of_fragments": 3,
+        },
+        "author": map[string]interface{}{
+          "fragment_size":       50,
+          "number_of_fragments": 1,
+        },
+      },
+    },
+  }
+  // query转换为str
+  queryStr, err := json.Marshal(query)
+  if err != nil {
+    log.Fatalf("Error marshalling query: %s", err)
+    return ctx.Response().Json(http.StatusOK, result)
+  }
+  instance:= elasticfacades.Elasticsearch()
+  resp, err := instance.SearchDocuments(ctx, string(queryStr))
+  if err != nil {
+    log.Fatalf("Error searching documents: %s", err)
+  }
+  var result map[string]interface{}
+  defer resp.Body.Close()
+  if resp.IsError() {
+    log.Printf("[%s] Error searching documents: %s", resp.Status(), resp.String())
+  } else {
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+      log.Fatalf("Error decoding response: %s", err)
+    }
+    // 提取高亮部分并添加到结果中
+    hits, ok := result["hits"].(map[string]interface{})
+    if ok {
+      hitList, ok := hits["hits"].([]interface{})
+      if ok {
+        for i := range hitList {
+          hit, ok := hitList[i].(map[string]interface{})
+          if ok {
+            highlight, ok := hit["highlight"].(map[string]interface{})
+            if ok {
+              hit["highlighted"] = highlight
+              delete(hit, "highlight")
+            }
+          }
+        }
+      }
+    }
+    fmt.Printf("Search results: %+v\n", result)
+  }
+  return ctx.Response().Json(http.StatusOK, result)
 }
 
 func (r *EsController) Destroy(ctx http.Context) http.Response {
 	index := ctx.Request().Input("index")
 	docID := ctx.Request().Input("docID")
-	r.DeleteDocument(ctx, index, docID)
+    _, err := elasticfacades.Elasticsearch().DeleteDocument(ctx, index, docID)
+    if err != nil {
+      ctx.Response().Json(http.StatusInternalServerError,map[string]interface{}{
+        "error":err.Error(),
+      }).Abort()
+    }
 	return ctx.Response().Success().Json(map[string]any{
 		"message": "success",
 		"data":    "删除成功",
@@ -170,8 +173,7 @@ func (r *ArticleController) Store(ctx http.Context) http.Response {
 	//todo add request values
 	facades.Orm().Query().Model(&models.Article{}).Create(&article)
 	docID := fmt.Sprintf("%d", article.ID)
-	index := "article"
-	resp, err := r.IndexDocument(ctx, index, docID, article)
+    elasticfacades.Elasticsearch().PushIndex(ctx, []string{"article"})
 	if err != nil {
 		log.Fatalf("Error indexing document: %s", err)
 	}
