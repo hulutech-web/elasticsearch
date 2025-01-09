@@ -89,24 +89,18 @@ func printEntry(ctx context.Context, entrys []pbe.Entry) {
 			fmt.Println(fmt.Sprintf("【ES INFO】================> binlog[%s : %d],Schema:[%s],tablename:[%s],docID:[%s] eventType: %s", header.GetLogfileName(), header.GetLogfileOffset(), header.GetSchemaName(), header.GetTableName(), primaryKey, header.GetEventType()))
 			//提取rowChange.GetRowDatas()中的数据，转换为一个map结构，进行es同步
 			for _, rowData := range rowChange.GetRowDatas() {
+				if log_open_val {
+					fmt.Println("-------> after update")
+					printColumn(rowData.GetAfterColumns())
+				}
 				if eventType == pbe.EventType_DELETE {
-					printColumn(rowData.GetBeforeColumns())
 					ES.DeleteDocument(ctx, header.GetTableName(), primaryKey)
 				} else if eventType == pbe.EventType_INSERT {
-					printColumn(rowData.GetAfterColumns())
 					toMap := columnsToMap(rowData.GetAfterColumns())
 					ES.IndexDocument(ctx, header.GetTableName(), primaryKey, toMap)
 				} else if eventType == pbe.EventType_TRUNCATE {
 					ES.DeleteIndexDocuments(ctx, header.GetTableName())
 				} else {
-					//fmt.Println("-------> before")
-					//printColumn(rowData.GetBeforeColumns())
-					if log_open_val {
-						fmt.Println("-------> after update")
-
-						printColumn(rowData.GetAfterColumns())
-					}
-
 					toMap := columnsToMap(rowData.GetAfterColumns())
 					ES.UpdateDocument(ctx, header.GetTableName(), primaryKey, toMap)
 				}

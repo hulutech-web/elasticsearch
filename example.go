@@ -3,8 +3,9 @@ package elasticsearch
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/goravel/framework/contracts/http"
+	contractshttp "github.com/goravel/framework/contracts/http"
 	"log"
+	"net/http"
 )
 
 type ExampleController struct {
@@ -16,7 +17,7 @@ func NewExampleController() *ExampleController {
 }
 
 // 查询出数据，并按照关键词进行高亮显示，给定一个html的class类名为highlight,前端请自行添加高亮的样式
-func (r *ExampleController) Index(ctx http.Context) http.Response {
+func (r *ExampleController) Index(ctx contractshttp.Context) contractshttp.Response {
 	content := ctx.Request().Query("content")
 	fields := ctx.Request().QueryArray("fields")
 	query := map[string]interface{}{

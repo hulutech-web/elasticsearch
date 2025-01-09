@@ -106,4 +106,9 @@ func ElasticSearch(app foundation.Application) {
 		})
 	})
 
+	router.Get("/es/poem", func(ctx http.Context) http.Response {
+		HuntPoem()
+		return nil
+	})
+
 }
