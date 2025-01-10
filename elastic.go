@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+	gcolor "github.com/gookit/color"
 	"github.com/goravel/framework/facades"
 	"github.com/goravel/framework/support/color"
 	"log"
@@ -48,21 +49,27 @@ func createElasticsearchClient() (*elasticsearch.Client, error) {
 	}
 	return elasticsearch.NewClient(cfg)
 }
+func viewPackage() {
+	str := fmt.Sprintf(" ▗▄▄▖ ▗▄▖ ▗▄▄▖  ▗▄▖ ▗▖  ▗▖▗▄▄▄▖▗▖       ▗▄▄▄▖▗▖   ▗▄▄▄▖ ▗▄▄▖ ▗▄▄▖▗▄▄▄▖▗▄▄▄▖ ▗▄▄▖\n▐▌   ▐▌ ▐▌▐▌ ▐▌▐▌ ▐▌▐▌  ▐▌▐▌   ▐▌       ▐▌   ▐▌   ▐▌   ▐▌   ▐▌     █    █  ▐▌   \n▐▌▝▜▌▐▌ ▐▌▐▛▀▚▖▐▛▀▜▌▐▌  ▐▌▐▛▀▀▘▐▌       ▐▛▀▀▘▐▌   ▐▛▀▀▘ ▝▀▚▖▐▌     █    █  ▐▌   \n▝▚▄▞▘▝▚▄▞▘▐▌ ▐▌▐▌ ▐▌ ▝▚▞▘ ▐▙▄▄▖▐▙▄▄▖    ▐▙▄▄▖▐▙▄▄▖▐▙▄▄▖▗▄▄▞▘▝▚▄▄▖  █  ▗▄█▄▖▝▚▄▄▖\n                                                                                \n                                                                                \n                                                                                ")
+	color.Green().Println(str)
+}
 
 func NewElastic(ctx context.Context) (*Elastic, error) {
+
 	var err error
+
 	once.Do(func() {
 		var client *elasticsearch.Client
 		client, err = createElasticsearchClient()
 		if err != nil {
-			log.Printf("Failed to create Elasticsearch client: %v", err)
+			color.Red().Println(fmt.Sprintf("Error creating Elasticsearch client: %s", err.Error()))
 			return
 		}
 
 		var indexs []string
 		indexs, err = GetElasticsearchTables()
 		if err != nil {
-			log.Printf("Error getting Elasticsearch tables: %v", err)
+			color.Red().Println(fmt.Sprintf("Elastic services maybe stoped,Error getting Elasticsearch tables: %v", err.Error()))
 			return
 		}
 
@@ -70,9 +77,11 @@ func NewElastic(ctx context.Context) (*Elastic, error) {
 			client: client,
 			indexs: indexs,
 		}
+		viewPackage()
+
 		_, err := ES.PushIndex(ctx, indexs)
 		if err != nil {
-			log.Printf("Error pushing index: %v", err)
+			color.Red().Println(fmt.Sprintf("Error pushing index: %v", err.Error()))
 		}
 	})
 	if err != nil {
@@ -98,23 +107,26 @@ func (e *Elastic) PushIndex(ctx context.Context, indexs []string) (*esapi.Respon
 
 	resp, err := req.Do(ctx, e.client)
 	if err != nil {
-		log.Fatalf("Error checking if index exists: %s", err)
+		color.Red().Println(fmt.Sprintf("Elastic services maybe stoped,Error checking if index exists: %s", err))
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.IsError() {
 		if resp.StatusCode == 404 {
-			color.Blue().Println(fmt.Printf("Index %s does not exist\n", indexs))
+			color.Red().Println(fmt.Printf("Index %s does not exist\n", indexs))
 			for _, index := range indexs {
 				req_crt := esapi.IndicesCreateRequest{
 					Index: index,
 				}
 				resp_crt, err_ := req_crt.Do(ctx, e.client)
 				if err_ != nil {
-					log.Fatalf("Error creating index: %s", err_)
+					color.Yellow().Println(fmt.Sprintf("Error creating index: %s", err_))
+					return nil, err_
 				} else {
 					if resp_crt.IsError() {
-						log.Printf("[%s] Error creating index: %s", resp_crt.Status(), resp_crt.String())
+						color.Yellow().Println(fmt.Sprintf("[%s] Error creating index: %s", resp_crt.Status(), resp_crt.String()))
+						return nil, err_
 					} else {
 						fmt.Printf("Index %s created\n", index)
 					}
@@ -125,7 +137,8 @@ func (e *Elastic) PushIndex(ctx context.Context, indexs []string) (*esapi.Respon
 			return nil, err
 		}
 	} else {
-		color.Green().Println("ES bootstrap..." + fmt.Sprintf("%v", indexs) + " index exists")
+		gcolor.Success.Tips(fmt.Sprintf("Elastic services start up..."))
+		gcolor.Success.Tips(fmt.Sprintf("Elastic Indexs %s has be loaded!!!", indexs))
 		return nil, nil
 	}
 	return nil, nil

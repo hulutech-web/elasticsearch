@@ -3,33 +3,38 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
+	gcolor "github.com/gookit/color"
 	"github.com/goravel/framework/facades"
-	"github.com/goravel/framework/support/color"
+	"github.com/sirupsen/logrus"
 	"github.com/withlin/canal-go/client"
 	pbe "github.com/withlin/canal-go/protocol/entry"
 	"google.golang.org/protobuf/proto"
-	"log"
 	"os"
 	"time"
 )
 
 // StartCanalSync 启动Canal同步到ES
 func StartCanalSync() error {
-	ctx := context.Background()
-	NewElastic(ctx)
-	mode := facades.Config().GetBool("elasticsearch.canal")
 
+	logrus.SetFormatter(&logrus.TextFormatter{
+		DisableColors: false,
+		FullTimestamp: true,
+	})
+	mode := facades.Config().GetBool("elasticsearch.canal")
 	if !mode {
 		return nil
 	}
+	ctx := context.Background()
+	NewElastic(ctx)
 	//参考canal.properties配置文件中的内容，修改成自己的配置
 	connector := client.NewSimpleCanalConnector("localhost", 11111, "", "", "example", 60000, 60*60*1000)
 	err := connector.Connect()
-	defer connector.DisConnection()
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		logrus.Errorln(fmt.Sprintf("CanalConnector connect fail: %v", err.Error()))
+		//color.Red().Println(fmt.Sprintf("CanalConnector init fail: %v", err.Error()))
+		return err
 	}
+	defer connector.DisConnection()
 	indexs, err := GetElasticsearchTables()
 	schema := facades.Config().GetString("elasticsearch.schema")
 	subscribeStr := ""
@@ -40,16 +45,16 @@ func StartCanalSync() error {
 	subscribeStr = subscribeStr[:len(subscribeStr)-1]
 	err = connector.Subscribe(subscribeStr)
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		facades.Log().Error(err.Error())
+		return err
 	}
-	color.Magenta().Println("===Elasticsearch is Started!!!===")
+	gcolor.Success.Tips(fmt.Sprintf("Canal Subscribe Success, tables: %v\n", subscribeStr))
 	for {
 
 		message, err := connector.Get(100, nil, nil)
 		if err != nil {
-			log.Println(err)
-			os.Exit(1)
+			facades.Log().Error(err.Error())
+			return err
 		}
 		batchId := message.Id
 		if batchId == -1 || len(message.Entries) <= 0 {
@@ -86,12 +91,13 @@ func printEntry(ctx context.Context, entrys []pbe.Entry) {
 		if rowChange != nil {
 			eventType := rowChange.GetEventType()
 			header := entry.GetHeader()
-			fmt.Println(fmt.Sprintf("【ES INFO】================> binlog[%s : %d],Schema:[%s],tablename:[%s],docID:[%s] eventType: %s", header.GetLogfileName(), header.GetLogfileOffset(), header.GetSchemaName(), header.GetTableName(), primaryKey, header.GetEventType()))
+			logrus.Info(fmt.Sprintf("【ES INFO】 binlog[%s : %d],Schema:[%s],tablename:[%s],docID:[%s] eventType: %s", header.GetLogfileName(), header.GetLogfileOffset(), header.GetSchemaName(), header.GetTableName(), primaryKey, header.GetEventType()))
 			//提取rowChange.GetRowDatas()中的数据，转换为一个map结构，进行es同步
 			for _, rowData := range rowChange.GetRowDatas() {
 				if log_open_val {
-					fmt.Println("-------> after update")
+					fmt.Println("{")
 					printColumn(rowData.GetAfterColumns())
+					fmt.Println("}")
 				}
 				if eventType == pbe.EventType_DELETE {
 					ES.DeleteDocument(ctx, header.GetTableName(), primaryKey)
