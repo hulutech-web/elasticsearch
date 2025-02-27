@@ -10,7 +10,7 @@
 支持搜索高亮显示，支持手动同步，手动查询，中文分词解析器需安装相关扩展。
 ## 一、安装
 ```bash
-go clone github.com/hulutech-web/elasticsearch
+git clone github.com/hulutech-web/elasticsearch
 
 ```
 #### 1.1 注册服务提供者:config/app.go
